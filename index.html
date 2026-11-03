@@ -323,7 +323,7 @@ else if(x.name=='f_ty'){$('#f_szw').style.display=x.value=='family'?'':'none'}
 else if(x.dataset.lock!==undefined){D.lock=x.checked;unlocked=false;save();show(1)}
 else if(x.id=='bki'&&x.files[0]){const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);if(!Array.isArray(o.G))throw 0;G=o.G;if(o.D)D=o.D;save();show(1);toast(t('bkok'))}catch(e){toast(t('bkbad'))}};r.readAsText(x.files[0])}
 else if(x.id=='csv'&&x.files[0]){const r=new FileReader();r.onload=()=>{const rows=r.result.split(/\r?\n/).filter(Boolean);if(/name/i.test(rows[0]))rows.shift();let n=0;rows.forEach(l=>{const c=l.split(',').map(v=>v.replace(/^"|"$/g,'').trim());if(c[0]){const ty=['single','couple','family'].includes(c[3])?c[3]:'single';G.push({id:'i'+Date.now().toString(36)+n++,name:c[0],phone:c[1]||'',grp:GR.includes(c[2])?c[2]:'Family',type:ty,size:+c[4]||4,plus:+c[5]||0,table:'',note:c[6]||'',rsvp:'Pending',attn:0,sent:false})}});save();toast(n+' '+t('imported'));show(1)};r.readAsText(x.files[0])}});
-(function(){const s=LS.g('ei_t',null);if(s)document.documentElement.dataset.theme=s;else if(matchMedia('(prefers-color-scheme:dark)').matches)document.documentElement.dataset.theme='dark'})();
+(function(){document.documentElement.dataset.theme=LS.g('ei_t','light')})();
 show();
 setTimeout(()=>$('#sp').classList.add('x'),1800);
 </script></body></html>
