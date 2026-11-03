@@ -176,7 +176,7 @@ let G=LS.g('ei3_g',[
 {id:'a2',name:'Nadeesha Perera',phone:'94712223344',grp:"Bride's Side",type:'single',size:1,plus:1,table:3,note:'',rsvp:'Pending',attn:0,sent:true},
 {id:'a3',name:'Kamal & Ruwani',phone:'94775556677',grp:'Work Friends',type:'couple',size:2,plus:0,table:7,note:'High chair needed',rsvp:'Attending',attn:2,sent:true},
 {id:'a4',name:'Aunty Malini',phone:'94763334455',grp:"Groom's Side",type:'single',size:1,plus:0,table:1,note:'Wheelchair access',rsvp:'Declined',attn:0,sent:true}]);
-let D=LS.g('ei3_d',{couple:3,show:'both',bride:'Shalini',groom:'Dilan',intro:'',date:'2027-02-14',time:'9:30 AM',venue:'Grand Ballroom',addr:'Galle Road, Colombo 03',map:'',phone:'0773931277',dress:'Traditional / Formal',th:'gold',ac:'',bgc:'',fn:'Elegant',sz:42,cl:'en',msg:'',lock:false,pass:'2027',gift:'https://example.com/gift-registry',
+let D=LS.g('ei3_d',{couple:3,show:'both',bride:'Priyanka',groom:'Dilshan',intro:'',date:'2027-02-14',time:'9:30 AM',venue:'Grand Ballroom',addr:'Galle Road, Colombo 03',map:'',phone:'0773931277',dress:'Traditional / Formal',th:'gold',ac:'',bgc:'',fn:'Elegant',sz:42,cl:'en',msg:'',lock:false,pass:'2027',gift:'https://example.com/gift-registry',
 st:'royal',sac:'',sf:'Script',sch:[{t:'9:30 AM',n:'Poruwa Ceremony'},{t:'12:30 PM',n:'Wedding Lunch'},{t:'3:00 PM',n:'Dancing & Celebration'}]});
 const save=()=>{LS.s('ei3_g',G);LS.s('ei3_d',D)};
 const DEF={en:'Dear {{GuestName}},\n\nWith joyful hearts, {{Bride}} & {{Groom}} invite you to celebrate our wedding on {{Date}} at {{Venue}}.\n\n{{TableNo}}\n\nPlease tell us if you can come here: {{Link}}',
@@ -311,7 +311,7 @@ let nw=0;if(!g){nw=1;g={id:'g'+Date.now().toString(36),name:nm,phone:'',grp:'Fam
 const y=$('#r_a').value=='y';g.rsvp=y?'Attending':'Declined';g.attn=y?Math.min(Math.max(1,+$('#r_k').value||1),nw?20:seats(g)):0;const n=$('#r_n').value;if(n)g.note=n;save();toast(t('thanks')+' ✓')}};
 function csvText(){return'name,phone,group,type,size,plus,table,notes,rsvp,attending,sent\n'+G.map(g=>[g.name,g.phone,g.grp,g.type,g.size,g.plus,g.table,g.note,g.rsvp,g.attn,g.sent?'Sent':'Not Sent'].map(x=>'"'+String(x??'').replace(/"/g,'""')+'"').join(',')).join('\n')}
 document.addEventListener('click',e=>{const a=e.target.closest('[data-a]');if(a)act[a.dataset.a]?.(a.dataset.v)});
-document.addEventListener('toggle',e=>{const k=e.target.dataset?.k;if(k)e.target.open?OPEN.add(k):OPEN.delete(k)},true); 
+document.addEventListener('toggle',e=>{const k=e.target.dataset?.k;if(k)e.target.open?OPEN.add(k):OPEN.delete(k)},true);
 document.addEventListener('input',e=>{const x=e.target;if(x.id=='q'){q=x.value;$('#gl').innerHTML=glist()}
 else if(x.dataset.sch){const[i,k]=x.dataset.sch.split(':');D.sch[+i][k]=x.value;sup()}
 else if(x.dataset.d){D[x.dataset.d]=x.type=='range'?+x.value:x.value;if(tab=='design')upd();else if(tab=='site')sup();else save()}});
