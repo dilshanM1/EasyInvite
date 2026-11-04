@@ -425,12 +425,20 @@ function slist(){return G.filter(g=>sf=='All'||(sf=='s'?g.sent:!g.sent)).map(g=>
 function vSend(){const s=G.filter(g=>g.sent).length;
 return`<div class="c row sb"><div class="f1"><h3>${t('sendh')}</h3><div style="font-size:13px;color:var(--mut)">${t('sendp')}</div></div><div class="row"><span class="p ok">${s} ${t('sentn')}</span><span class="p wn">${G.length-s} ${t('remn')}</span></div></div>
 <div class="row" style="margin-bottom:12px">${[['All','all'],['s','sentn'],['n','remn']].map(x=>`<button class="chip ${sf==x[0]?'on':''}" data-a="sfl" data-v="${x[0]}">${t(x[1])}</button>`).join('')}</div><div class="gl two" id="sl">${slist()}</div>`}
+function busy(s){const e=document.createElement('div');e.className='toast';e.textContent=s;document.body.appendChild(e);return()=>e.remove()}
+const wt=(p,ms,msg)=>Promise.race([p,new Promise((_,rj)=>setTimeout(()=>rj(new Error(msg)),ms))]);
 async function blob(g){const o=$('#off');o.innerHTML=card(g);
-try{const fs=D.cl=='si'?[sif()[0]]:F[D.fn];await Promise.all(fs.map(f=>document.fonts.load('700 16px '+f,'Aa 0123 \u0dc1\u0dca\u200d\u0dbb\u0dd3 \u0d85')))}catch(e){}
-try{await document.fonts.ready}catch(e){}
+if(typeof html2canvas!='function')throw new Error('Image tool did not load - check your internet');
+try{const fs=D.cl=='si'?[sif()[0]]:F[D.fn];await wt(Promise.all(fs.map(f=>document.fonts.load('700 16px '+f,'Aa 0123 \u0dc1\u0dca\u200d\u0dbb\u0dd3 \u0d85'))),3500,'fonts')}catch(e){}
 fitCt(o);const el=o.firstElementChild;el.querySelectorAll('*').forEach(n=>{n.style.animation='none'});
-let c;try{c=await html2canvas(el,{scale:3,backgroundColor:null,useCORS:true})}catch(e){c=await html2canvas(el,{scale:2,backgroundColor:null,useCORS:true})}
-const b=await new Promise(r=>c.toBlob(r,'image/png'));if(!b)throw new Error('toBlob failed');return b}
+await new Promise(r=>requestAnimationFrame(()=>setTimeout(r,60)));
+const run=(sc,fo)=>wt(html2canvas(el,{scale:sc,backgroundColor:null,useCORS:true,logging:false,imageTimeout:8000,foreignObjectRendering:fo,onclone:d=>{d.querySelectorAll('script,main,footer,nav,header,.tabs,.toast,.md').forEach(n=>n.remove())}}),isIOS?9000:25000,'Card image took too long');
+let c;const tries=isIOS?[[2,false],[1,false],[1,true]]:[[3,false],[2,false]];
+let last;for(const [sc,fo] of tries){try{c=await run(sc,fo);if(c&&c.width)break}catch(e){last=e;c=null}}
+if(!c)throw last||new Error('Could not draw the card');
+let b=await wt(new Promise(r=>c.toBlob(r,'image/png')),8000,'toBlob').catch(()=>null);
+if(!b){const u=c.toDataURL('image/png').split(',')[1],bin=atob(u),a=new Uint8Array(bin.length);for(let k=0;k<bin.length;k++)a[k]=bin.charCodeAt(k);b=new Blob([a],{type:'image/png'})}
+o.innerHTML='';return b}
 const isIOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform=='MacIntel'&&navigator.maxTouchPoints>1);
 let _sv=null;
 function saveSheet(b,name,g){if(_sv)URL.revokeObjectURL(_sv.u);const u=URL.createObjectURL(b);_sv={b,u,name,g};
@@ -438,12 +446,12 @@ modal(`<div class="row sb"><h3>${t('savt')}</h3><button class="ic" data-a="close
 async function dl(name,data){try{const d=window.claude?await claude.use('downloads'):null;if(d){await d.save({filename:name,data});return true}}catch(e){if(e&&e.code=='declined'){toast(t('dldec'));return false}}
 const u=URL.createObjectURL(data instanceof Blob?data:new Blob([data]));const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000);return true}
 const mark=g=>{g.sent=true;save()};
-async function dlcard(id){const g=gname(id);toast(t('prep'));try{const b=await blob(g),name='invitation-'+(g.name.replace(/[^\w]+/g,'-').replace(/^-|-$/g,'')||'guest')+'.png';if(isIOS){saveSheet(b,name,g);return}if(await dl(name,b))toast(t('dlok'))}catch(e){toast(t('cantcopy'))}}
+async function dlcard(id){const g=gname(id);const done=busy(t('prep'));try{const b=await blob(g),name='invitation-'+(g.name.replace(/[^\w]+/g,'-').replace(/^-|-$/g,'')||'guest')+'.png';if(isIOS){saveSheet(b,name,g);return}if(await dl(name,b))toast(t('dlok'))}catch(e){toast('Could not make the card image: '+((e&&e.message)||'unknown'))}finally{done()}}
 async function cpimg(id){const g=gname(id);try{await navigator.clipboard.write([new ClipboardItem({'image/png':blob(g)})]);toast(t('imgok'))}catch(e){toast(t('noimg'))}}
 async function send(id){const g=gname(id);toast(t('prep'));const w=window.open('about:blank','_blank');
 try{await navigator.clipboard.write([new ClipboardItem({'image/png':blob(g)})]);toast(t('cardcopied'))}catch(e){toast(t('cantcopy'))}
 mark(g);const u='https://wa.me/'+g.phone.replace(/\D/g,'')+'?text='+encodeURIComponent(fill(g));if(w)w.location=u;else window.open(u,'_blank');if(tab!='design')show(1)}
-async function share(id){const g=gname(id);toast(t('prep'));try{const b=await blob(g),f=new File([b],'invitation.png',{type:'image/png'});if(navigator.canShare?.({files:[f]})){try{await navigator.share({files:[f],text:fill(g)});mark(g);show(1)}catch(e){if(e&&e.name=='NotAllowedError')saveSheet(b,'invitation.png',g);else if(!e||e.name!='AbortError')toast(t('noshare'))}}else saveSheet(b,'invitation.png',g)}catch(e){toast(t('cantcopy'))}}
+async function share(id){const g=gname(id);const done=busy(t('prep'));try{const b=await blob(g),f=new File([b],'invitation.png',{type:'image/png'});if(navigator.canShare?.({files:[f]})){try{await navigator.share({files:[f],text:fill(g)});mark(g);show(1)}catch(e){if(e&&e.name=='NotAllowedError')saveSheet(b,'invitation.png',g);else if(!e||e.name!='AbortError')toast(t('noshare'))}}else saveSheet(b,'invitation.png',g)}catch(e){toast('Could not make the card image: '+((e&&e.message)||'unknown'))}finally{done()}}
 function qrm(id){const g=gname(id);modal(`<h3>${esc(g.name)}</h3><div id="qb" style="background:#fff;padding:12px;display:inline-block;border-radius:8px"></div><p style="word-break:break-all;font-size:12px">${esc(link(g))}</p><button class="b g" data-a="close">${t('close')}</button>`);if(window.QRCode)new QRCode($('#qb'),{text:link(g),width:200,height:200})}
 function qr(){const e=$('#qr');if(e&&window.QRCode&&e.dataset.u!=base()){e.dataset.u=base();e.innerHTML='';new QRCode(e,{text:base(),width:104,height:104})}}
 function sitePrev(){const s=ST[D.st],ac=D.sac||s.ac,g=urlG(),open=!D.lock||unlocked,tm=new Date(D.date+'T00:00')-Date.now(),dd=Math.max(0,Math.floor(tm/864e5))||0,hh=Math.max(0,Math.floor(tm/36e5)%24)||0,mm=Math.max(0,Math.floor(tm/6e4)%60)||0;
