@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Stick+No+Bills:wght@400;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Sinhala:wght@400;700&family=Noto+Sans+Sinhala:wght@400;700&display=swap" rel="stylesheet">
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 :root{--bg:#f8fafc;--sf:#fff;--ink:#0f172a;--mut:#64748b;--ln:#e2e8f0;--ac:#e11d48;--acs:#fff1f2;--mr:#82061e;--inp:#fff;--hd:Georgia,'Playfair Display',serif;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px)}
@@ -426,15 +426,61 @@ function vSend(){const s=G.filter(g=>g.sent).length;
 return`<div class="c row sb"><div class="f1"><h3>${t('sendh')}</h3><div style="font-size:13px;color:var(--mut)">${t('sendp')}</div></div><div class="row"><span class="p ok">${s} ${t('sentn')}</span><span class="p wn">${G.length-s} ${t('remn')}</span></div></div>
 <div class="row" style="margin-bottom:12px">${[['All','all'],['s','sentn'],['n','remn']].map(x=>`<button class="chip ${sf==x[0]?'on':''}" data-a="sfl" data-v="${x[0]}">${t(x[1])}</button>`).join('')}</div><div class="gl two" id="sl">${slist()}</div>`}
 function busy(s){const e=document.createElement('div');e.className='toast';e.textContent=s;document.body.appendChild(e);return()=>e.remove()}
+
+/* ===== direct canvas renderer: draws the card without html2canvas (fast + works on iPhone) ===== */
+const _rgba=s=>{const m=String(s).match(/rgba?\(([^)]+)\)/);if(!m)return[0,0,0,0];const p=m[1].split(/[ ,\/]+/).filter(Boolean).map(Number);return[p[0],p[1],p[2],p.length>3?p[3]:1]};
+const _rs=c=>'rgba('+Math.round(c[0])+','+Math.round(c[1])+','+Math.round(c[2])+','+c[3]+')';
+function _split(s){const o=[];let d=0,c='';for(const ch of s){if(ch=='(')d++;if(ch==')')d--;if(ch==','&&d==0){o.push(c.trim());c=''}else c+=ch}if(c.trim())o.push(c.trim());return o}
+function _rr(ctx,x,y,w,h,r){r=Math.max(0,Math.min(r,w/2,h/2));ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function _stops(gr,args,len,rep){let st=[];args.forEach(a=>{const m=a.match(/^(rgba?\([^)]*\)|#[0-9a-fA-F]+|transparent)\s*(.*)$/);if(!m)return;const c=m[1]=='transparent'?[0,0,0,0]:_rgba(m[1]);const ps=m[2].trim()?m[2].trim().split(/\s+/).map(v=>v.endsWith('%')?parseFloat(v)/100:parseFloat(v)/len):[null];ps.forEach(p=>st.push({c:c,p:p}))});
+if(!st.length)return;if(st[0].p==null)st[0].p=0;if(st[st.length-1].p==null)st[st.length-1].p=1;
+for(let i=1;i<st.length;i++)if(st[i].p==null){let j=i;while(st[j].p==null)j++;const a=st[i-1].p,b=st[j].p;for(let k=i;k<j;k++)st[k].p=a+(b-a)*(k-i+1)/(j-i+1)}
+const isT=s=>s.c[3]==0&&s.c[0]==0&&s.c[1]==0&&s.c[2]==0,out=[];
+st.forEach((s,i)=>{if(isT(s)){const pv=st.slice(0,i).reverse().find(q=>!isT(q)),nx=st.slice(i+1).find(q=>!isT(q));if(pv)out.push({c:[pv.c[0],pv.c[1],pv.c[2],0],p:s.p});if(nx)out.push({c:[nx.c[0],nx.c[1],nx.c[2],0],p:s.p});if(!pv&&!nx)out.push(s)}else out.push(s)});
+st=out;if(rep){const per=(st[st.length-1].p-st[0].p)||1,base=st.slice();for(let k=1;k*per<1;k++)base.forEach(s=>st.push({c:s.c,p:s.p+k*per}))}
+let last=0;st.forEach(s=>{const p=Math.min(1,Math.max(0,s.p,last));last=p;gr.addColorStop(p,_rs(s.c))})}
+function _grad(ctx,g,x,y,w,h){const m=g.match(/^(repeating-)?(linear|radial)-gradient\(([\s\S]*)\)$/);if(!m)return;const rep=!!m[1],args=_split(m[3]),isS=a=>/^(rgba?\(|#|transparent)/i.test(a);const cfg=[];while(args.length&&!isS(args[0]))cfg.push(args.shift());const cs=cfg.join(' ');
+if(m[2]=='linear'){let ang=180;const am=cs.match(/(-?[\d.]+)deg/);if(am)ang=+am[1];else if(/to\s/.test(cs)){const mp={'to top':0,'to right':90,'to bottom':180,'to left':270};ang=mp[cs.trim()]??180}
+const th=ang*Math.PI/180,dx=Math.sin(th),dy=-Math.cos(th),L=Math.abs(w*dx)+Math.abs(h*dy),cx=x+w/2,cy=y+h/2,gr=ctx.createLinearGradient(cx-dx*L/2,cy-dy*L/2,cx+dx*L/2,cy+dy*L/2);_stops(gr,args,L,rep);ctx.fillStyle=gr;ctx.fillRect(x,y,w,h)}
+else{let px=w/2,py=h/2;const am=cs.match(/at\s+([\d.]+)(%|px)\s+([\d.]+)(%|px)/);if(am){px=am[2]=='%'?+am[1]/100*w:+am[1];py=am[4]=='%'?+am[3]/100*h:+am[3]}
+const R=Math.max(Math.hypot(px,py),Math.hypot(w-px,py),Math.hypot(px,h-py),Math.hypot(w-px,h-py)),gr=ctx.createRadialGradient(x+px,y+py,0,x+px,y+py,R);_stops(gr,args,R,rep);ctx.fillStyle=gr;ctx.fillRect(x,y,w,h)}}
+async function cardCanvas(card,scale){
+const W=card.offsetWidth,H=card.offsetHeight,cv=document.createElement('canvas');cv.width=Math.round(W*scale);cv.height=Math.round(H*scale);
+const ctx=cv.getContext('2d');ctx.scale(scale,scale);const R0=card.getBoundingClientRect();
+await Promise.all([...card.querySelectorAll('img')].map(i=>i.decode?i.decode().catch(()=>{}):0));
+const cache={},ld=u=>cache[u]||(cache[u]=new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>rej(new Error('bg image'));i.src=u}));
+function word(txt,rect,o){const x=rect.left-R0.left,y=rect.top-R0.top+(rect.height-(o.asc+o.dsc))/2+o.asc;
+if(o.ls){if('letterSpacing' in ctx){ctx.letterSpacing=o.ls+'px';ctx.fillText(txt,x,y);ctx.letterSpacing='0px'}else if(/[\u0D80-\u0DFF]/.test(txt))ctx.fillText(txt,x,y);else{let cx=x;for(const ch of txt){ctx.fillText(ch,cx,y);cx+=ctx.measureText(ch).width+o.ls}}}else ctx.fillText(txt,x,y)}
+function text(node,cs,sc,a){const s=node.nodeValue;if(!/\S/.test(s))return;const fs=parseFloat(cs.fontSize)*sc;
+ctx.save();ctx.globalAlpha=a;ctx.font=cs.fontStyle+' '+cs.fontWeight+' '+fs+'px '+cs.fontFamily;ctx.fillStyle=cs.color;ctx.textBaseline='alphabetic';ctx.textAlign='left';
+const mm=ctx.measureText('Mg'),o={asc:mm.fontBoundingBoxAscent??fs*.8,dsc:mm.fontBoundingBoxDescent??fs*.2,ls:cs.letterSpacing=='normal'?0:parseFloat(cs.letterSpacing)*sc},up=cs.textTransform=='uppercase';
+if(cs.textShadow&&cs.textShadow!='none'){const c=cs.textShadow.match(/rgba?\([^)]*\)/),n=cs.textShadow.replace(/rgba?\([^)]*\)/,'').match(/-?[\d.]+/g)||[];if(c){ctx.shadowColor=c[0];ctx.shadowOffsetX=(+n[0]||0)*scale;ctx.shadowOffsetY=(+n[1]||0)*scale;ctx.shadowBlur=(+n[2]||0)*scale}}
+const re=/\S+/g;let m;while((m=re.exec(s))){const rg=document.createRange();rg.setStart(node,m.index);rg.setEnd(node,m.index+m[0].length);const rs=[...rg.getClientRects()].filter(r=>r.width>0);
+if(rs.length==1)word(up?m[0].toUpperCase():m[0],rs[0],o);else for(let k=0;k<m[0].length;k++){const r2=document.createRange();r2.setStart(node,m.index+k);r2.setEnd(node,m.index+k+1);const rr=r2.getClientRects()[0];if(rr)word(up?m[0][k].toUpperCase():m[0][k],rr,o)}}
+ctx.restore()}
+async function paint(el,sc,alpha){const cs=getComputedStyle(el);if(cs.display=='none'||cs.visibility=='hidden')return;const op=parseFloat(cs.opacity),a=alpha*(isNaN(op)?1:op),r=el.getBoundingClientRect(),x=r.left-R0.left,y=r.top-R0.top,w=r.width,h=r.height;
+const tm=cs.transform&&cs.transform!='none'?new DOMMatrix(cs.transform):null,nsc=sc*(tm?tm.a:1),rad=(parseFloat(cs.borderTopLeftRadius)||0)*sc;
+ctx.save();ctx.globalAlpha=a;
+const bc=_rgba(cs.backgroundColor);if(bc[3]>0){ctx.fillStyle=_rs(bc);_rr(ctx,x,y,w,h,rad);ctx.fill()}
+if(cs.backgroundImage&&cs.backgroundImage!='none'){const L=_split(cs.backgroundImage).reverse();for(const l of L){ctx.save();_rr(ctx,x,y,w,h,rad);ctx.clip();if(l.startsWith('url(')){const u=l.slice(4,-1).replace(/^["']|["']$/g,'');ctx.drawImage(await ld(u),x,y,w,h)}else _grad(ctx,l,x,y,w,h);ctx.restore()}}
+const bw=parseFloat(cs.borderTopWidth)*sc;if(bw>0&&cs.borderTopStyle!='none'){ctx.strokeStyle=cs.borderTopColor;ctx.lineWidth=bw;_rr(ctx,x+bw/2,y+bw/2,w-bw,h-bw,Math.max(0,rad-bw/2));ctx.stroke()}
+if(el.classList.contains('cp')){const gl=cs.getPropertyValue('--gl').trim();if(/^#[0-9a-f]{8}$/i.test(gl)){const c=[parseInt(gl.slice(1,3),16),parseInt(gl.slice(3,5),16),parseInt(gl.slice(5,7),16),parseInt(gl.slice(7,9),16)/255],x0=x+.05*w,x1=x+.95*w,y0=y+.1*h,y1=y+1.05*h,cx=(x0+x1)/2,cy=(y0+y1)/2,rx=(x1-x0)/2,ry=(y1-y0)/2;ctx.save();ctx.translate(cx,cy);ctx.scale(rx,ry);const gr=ctx.createRadialGradient(0,0,0,0,0,1);gr.addColorStop(0,_rs(c));gr.addColorStop(1,_rs([c[0],c[1],c[2],0]));ctx.fillStyle=gr;ctx.beginPath();ctx.arc(0,0,1,0,Math.PI*2);ctx.fill();ctx.restore()}}
+if(el.tagName=='IMG')ctx.drawImage(el,x,y,w,h);
+ctx.restore();
+const clip=el!==card&&(cs.overflow=='hidden');if(clip){ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip()}
+for(const n of el.childNodes){if(n.nodeType==3)text(n,cs,nsc,a);else if(n.nodeType==1)await paint(n,nsc,a)}
+if(clip)ctx.restore()}
+ctx.save();_rr(ctx,0,0,W,H,parseFloat(getComputedStyle(card).borderTopLeftRadius)||0);ctx.clip();await paint(card,1,1);ctx.restore();return cv}
+function loadH2C(){return window.html2canvas?Promise.resolve():new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';s.onload=res;s.onerror=()=>rej(new Error('Image tool did not load - check your internet'));document.head.appendChild(s)})}
 const wt=(p,ms,msg)=>Promise.race([p,new Promise((_,rj)=>setTimeout(()=>rj(new Error(msg)),ms))]);
 async function blob(g){const o=$('#off');o.innerHTML=card(g);
-if(typeof html2canvas!='function')throw new Error('Image tool did not load - check your internet');
 try{const fs=D.cl=='si'?[sif()[0]]:F[D.fn];await wt(Promise.all(fs.map(f=>document.fonts.load('700 16px '+f,'Aa 0123 \u0dc1\u0dca\u200d\u0dbb\u0dd3 \u0d85'))),3500,'fonts')}catch(e){}
 fitCt(o);const el=o.firstElementChild;el.querySelectorAll('*').forEach(n=>{n.style.animation='none'});
 await new Promise(r=>requestAnimationFrame(()=>setTimeout(r,60)));
-const run=(sc,fo)=>wt(html2canvas(el,{scale:sc,backgroundColor:null,useCORS:true,logging:false,imageTimeout:8000,foreignObjectRendering:fo,onclone:d=>{d.querySelectorAll('script,main,footer,nav,header,.tabs,.toast,.md').forEach(n=>n.remove())}}),isIOS?9000:25000,'Card image took too long');
-let c;const tries=isIOS?[[2,false],[1,false],[1,true]]:[[3,false],[2,false]];
-let last;for(const [sc,fo] of tries){try{c=await run(sc,fo);if(c&&c.width)break}catch(e){last=e;c=null}}
+let c=null,last=null;
+try{c=await wt(cardCanvas(el,3),10000,'Card drawing took too long')}catch(e){last=e;c=null}
+if(!c){try{await wt(loadH2C(),8000,'Image tool did not load - check your internet');const run=(sc,fo)=>wt(html2canvas(el,{scale:sc,backgroundColor:null,useCORS:true,logging:false,imageTimeout:8000,foreignObjectRendering:fo,onclone:d=>{d.querySelectorAll('script,main,footer,nav,header,.tabs,.toast,.md').forEach(n=>n.remove())}}),isIOS?9000:25000,'Card image took too long');
+for(const [sc,fo] of (isIOS?[[2,false],[1,false]]:[[3,false],[2,false]])){try{c=await run(sc,fo);if(c&&c.width)break}catch(e){last=e;c=null}}}catch(e){last=e}}
 if(!c)throw last||new Error('Could not draw the card');
 let b=await wt(new Promise(r=>c.toBlob(r,'image/png')),8000,'toBlob').catch(()=>null);
 if(!b){const u=c.toDataURL('image/png').split(',')[1],bin=atob(u),a=new Uint8Array(bin.length);for(let k=0;k<bin.length;k++)a[k]=bin.charCodeAt(k);b=new Blob([a],{type:'image/png'})}
